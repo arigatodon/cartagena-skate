@@ -543,9 +543,15 @@ export class Renderer3D {
       this.scene.add(new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: 0xc6c0b3 })));
     }
 
-    // Palmeras y arbolitos sobre el bandejón, como en la avenida real.
+    // Palmeras y arbolitos sobre el bandejón, como en la avenida real, pero
+    // alternados a los costados de la platabanda: el eje del bandejón es la
+    // línea de grind y plantarlos ahí deja al skater atravesando troncos.
     const arb = [];
-    for (let d = from + 25; d < to - 20; d += 34) arb.push({ d, lat: 0 });
+    let lado = 1;
+    for (let d = from + 25; d < to - 20; d += 34) {
+      arb.push({ d, lat: lado * (half - 0.5) });
+      lado = -lado;
+    }
     this.plantar(arb, 'bandejon');
   }
 
