@@ -1,0 +1,366 @@
+/* Cartagena Skate — estilos del HUD y menús.
+   Paleta sacada de la costa: asfalto, arena, verde pacífico y naranjo de cono. */
+
+:root {
+  --tinta:    #0e1418;
+  --arena:    #e8dfd0;
+  --cal:      #f6f2ea;
+  --pacifico: #2fb9a0;
+  --cono:     #ff7a3d;
+  --sangre:   #e04a4a;
+  --oro:      #ffd166;
+  --panel:    rgba(14, 20, 24, 0.72);
+  --borde:    rgba(255, 255, 255, 0.14);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: #0b1013;
+  color: var(--cal);
+  font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+}
+
+#wrap { position: relative; width: 100vw; height: 100dvh; overflow: hidden; }
+
+#game { display: block; width: 100%; height: 100%; }
+
+.hidden { display: none !important; }
+
+kbd {
+  display: inline-block;
+  min-width: 1.5em;
+  padding: 1px 5px;
+  border: 1px solid var(--borde);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.07);
+  font: 600 0.82em/1.5 ui-monospace, monospace;
+  text-align: center;
+}
+
+/* ------------------------------------------------------------------ HUD */
+
+#hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-top {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  backdrop-filter: blur(6px);
+  padding: 8px 12px;
+}
+
+.panel.speed { min-width: 128px; }
+.kmh { display: flex; align-items: baseline; gap: 4px; }
+.kmh span { font-size: 2.1rem; font-weight: 800; line-height: 1; }
+.kmh small { font-size: 0.7rem; opacity: 0.6; letter-spacing: 0.05em; }
+.bar {
+  margin-top: 6px; height: 5px; border-radius: 3px;
+  background: rgba(255, 255, 255, 0.13); overflow: hidden;
+}
+.bar i {
+  display: block; height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--pacifico), var(--oro) 70%, var(--cono));
+  transition: width 0.08s linear;
+}
+
+.panel.middle { flex: 0 1 470px; }
+#section {
+  font-size: 0.74rem; letter-spacing: 0.14em; text-transform: uppercase;
+  opacity: 0.75; margin-bottom: 3px;
+}
+#profile { display: block; width: 100%; height: 46px; }
+.meta {
+  display: flex; justify-content: space-between;
+  font-size: 0.74rem; opacity: 0.7; margin-top: 2px;
+}
+
+.panel.score { min-width: 118px; text-align: right; }
+.panel.score .pts { font-size: 1.9rem; font-weight: 800; line-height: 1; color: var(--oro); }
+.panel.score .lbl { font-size: 0.66rem; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.55; }
+
+#minimap {
+  position: absolute; right: 14px; bottom: 14px;
+  width: 190px; height: 150px;
+  background: var(--panel);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+}
+
+/* Combo en curso */
+#comboBox {
+  position: absolute; left: 50%; top: 46%;
+  transform: translateX(-50%);
+  text-align: center;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+}
+#comboText { font-size: 1.15rem; font-weight: 700; color: var(--cal); letter-spacing: 0.02em; }
+#comboPts { font-size: 1.7rem; font-weight: 800; color: var(--oro); }
+#comboPts em { font-style: normal; font-size: 1.05rem; color: var(--cono); }
+
+/* Avisos flotantes */
+#toasts {
+  position: absolute; left: 50%; bottom: 22%;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column-reverse; align-items: center; gap: 4px;
+}
+.toast {
+  font-weight: 700; font-size: 1rem;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);
+  animation: rise 1.4s ease-out forwards;
+  white-space: nowrap;
+}
+.toast.good { color: var(--pacifico); }
+.toast.big  { color: var(--oro); font-size: 1.35rem; }
+.toast.bad  { color: var(--sangre); }
+@keyframes rise {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.92); }
+  15%  { opacity: 1; transform: translateY(0) scale(1); }
+  75%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-26px); }
+}
+
+/* Carga del ollie */
+#chargeBar {
+  position: absolute; left: 50%; bottom: 13%;
+  transform: translateX(-50%);
+  width: 130px; height: 7px; border-radius: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--borde);
+  overflow: hidden;
+}
+#chargeFill {
+  display: block; height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--pacifico), var(--oro));
+}
+
+/* --------------------------------------------------------------- Menús */
+
+.screen {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at 50% 35%, rgba(20, 44, 56, 0.82), rgba(6, 10, 13, 0.94));
+  backdrop-filter: blur(3px);
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.card {
+  width: min(760px, 100%);
+  background: rgba(12, 18, 22, 0.9);
+  border: 1px solid var(--borde);
+  border-radius: 16px;
+  padding: 26px 30px 22px;
+  text-align: center;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+}
+.card.small { width: min(430px, 100%); }
+
+h1 {
+  font-size: clamp(2rem, 6vw, 3rem);
+  letter-spacing: -0.02em;
+  font-weight: 800;
+}
+h1 em { font-style: normal; color: var(--cono); }
+h2 { font-size: 1.5rem; margin-bottom: 14px; }
+
+.sub { margin-top: 4px; opacity: 0.72; font-size: 0.95rem; }
+.sub .arrow { color: var(--pacifico); }
+
+.stats-row {
+  display: flex; justify-content: center; gap: 26px;
+  margin: 18px 0 20px;
+}
+.stats-row div { display: flex; flex-direction: column; }
+.stats-row b { font-size: 1.5rem; color: var(--pacifico); }
+.stats-row span { font-size: 0.68rem; opacity: 0.6; letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* Recorrido y selector de personaje */
+
+.ruta {
+  font-size: 0.76rem; opacity: 0.55; margin: -8px 0 18px;
+  letter-spacing: 0.02em;
+}
+.ruta span { color: var(--cono); opacity: 0.8; margin: 0 2px; }
+
+.sec-tit {
+  font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--cono); margin-bottom: 10px; font-weight: 700;
+}
+
+.chars {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px; margin-bottom: 18px;
+}
+.char {
+  display: flex; gap: 10px; align-items: center; text-align: left;
+  padding: 10px; border-radius: 10px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--borde);
+  transition: background 0.12s, border-color 0.12s, transform 0.12s;
+}
+.char:hover { background: rgba(255, 255, 255, 0.09); transform: translateY(-1px); }
+.char[aria-pressed="true"] {
+  border-color: var(--pacifico);
+  background: rgba(47, 185, 160, 0.16);
+}
+/* Monigote hecho con divs: la silueta usa la paleta real del personaje. */
+.avatar { width: 30px; flex: 0 0 30px; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.avatar i { display: block; border-radius: 2px; }
+.avatar .cabeza { width: 13px; height: 13px; border-radius: 50%; }
+.avatar .cuerpo { width: 20px; height: 16px; border-radius: 3px; }
+.avatar .patas  { width: 16px; height: 11px; }
+.avatar .tabla  { width: 30px; height: 4px; border-radius: 2px; margin-top: 2px; }
+/* Los hijos son <span>: sin display:block se apilan encima unos de otros. */
+.char-info { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.char-nom { display: block; font-weight: 700; font-size: 0.88rem; }
+.char-desc { display: block; font-size: 0.7rem; opacity: 0.75; line-height: 1.35; }
+.char-stats { display: flex; gap: 7px; margin-top: 2px; font-size: 0.6rem; opacity: 0.85; }
+.char-stats > span { white-space: nowrap; }
+.char-stats b { color: var(--pacifico); font-weight: 700; }
+
+.controls {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px; text-align: left;
+  border-top: 1px solid var(--borde);
+  border-bottom: 1px solid var(--borde);
+  padding: 16px 0;
+}
+.controls h3 {
+  font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--cono); margin-bottom: 8px; font-weight: 700;
+}
+.controls h3 small { opacity: 0.5; letter-spacing: 0; text-transform: none; }
+.controls ul { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.controls li { font-size: 0.84rem; opacity: 0.9; }
+.controls li small { opacity: 0.5; }
+.controls li b { color: var(--pacifico); }
+
+.tip { font-size: 0.82rem; opacity: 0.62; margin: 16px auto 0; max-width: 46ch; line-height: 1.5; }
+.foot { font-size: 0.72rem; opacity: 0.45; margin-top: 12px; }
+
+button {
+  margin-top: 18px;
+  padding: 12px 40px;
+  font: 700 1rem/1 inherit;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #10191d;
+  background: var(--pacifico);
+  border: none; border-radius: 9px;
+  cursor: pointer;
+  transition: transform 0.1s, filter 0.1s;
+}
+button:hover { filter: brightness(1.12); transform: translateY(-1px); }
+button:active { transform: translateY(1px); }
+button.ghost {
+  background: transparent; color: var(--cal);
+  border: 1px solid var(--borde); margin-left: 8px;
+}
+
+.result-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px;
+  margin-bottom: 6px; text-align: left;
+}
+.result-grid div {
+  display: flex; justify-content: space-between; align-items: baseline;
+  border-bottom: 1px dotted rgba(255, 255, 255, 0.14); padding-bottom: 4px;
+}
+.result-grid span { font-size: 0.76rem; opacity: 0.6; }
+.result-grid b { font-size: 1.05rem; color: var(--oro); }
+
+#rank {
+  margin-top: 16px; font-size: 1.25rem; font-weight: 800;
+  color: var(--pacifico); letter-spacing: 0.03em;
+}
+
+/* --------------------------------------------------------------- Táctil */
+
+#touch { position: absolute; inset: 0; pointer-events: none; }
+.tpad { position: absolute; bottom: 16px; display: flex; gap: 8px; pointer-events: auto; }
+.tpad.left  { left: 16px; }
+.tpad.right { right: 16px; flex-wrap: wrap; width: 190px; justify-content: flex-end; }
+.tpad button {
+  margin: 0; width: 62px; height: 62px; padding: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.13);
+  border: 1px solid var(--borde);
+  color: var(--cal);
+  font-size: 0.62rem; letter-spacing: 0.04em;
+  backdrop-filter: blur(4px);
+}
+.tpad button.wide { width: 88px; border-radius: 31px; }
+.tpad button.big  { width: 88px; height: 88px; background: rgba(47, 185, 160, 0.28); }
+.tpad button:active { background: rgba(255, 255, 255, 0.3); transform: none; }
+
+@media (max-width: 820px) {
+  .hud-top { flex-wrap: wrap; gap: 8px; padding: 8px; }
+  .panel.middle { order: 3; flex-basis: 100%; }
+  #minimap { width: 130px; height: 104px; bottom: auto; top: 8px; right: 8px; }
+  .kmh span { font-size: 1.6rem; }
+  .panel.score .pts { font-size: 1.4rem; }
+}
+
+/* ------------------------------------------------------- Tabla de carrera */
+
+.panel.carrera {
+  position: absolute; left: 14px; top: 108px;
+  min-width: 168px; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.puesto {
+  font-size: 2.1rem; font-weight: 800; line-height: 1;
+  letter-spacing: -0.02em;
+}
+.puesto.p1, .rpuesto.p1 { color: var(--oro); }
+.puesto.p2, .rpuesto.p2 { color: #d6dde4; }
+.puesto.p3, .rpuesto.p3 { color: var(--cono); }
+
+#tabla { list-style: none; display: flex; flex-direction: column; gap: 3px; }
+#tabla li {
+  display: grid; grid-template-columns: 14px 1fr auto;
+  gap: 7px; align-items: baseline;
+  font-size: 0.76rem; opacity: 0.62;
+  padding: 2px 5px; border-radius: 5px;
+}
+#tabla li.yo {
+  opacity: 1; background: rgba(47, 185, 160, 0.18);
+  border-left: 2px solid var(--pacifico); padding-left: 3px;
+}
+#tabla li b { color: var(--oro); font-weight: 800; }
+#tabla li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#tabla li em { font-style: normal; font-variant-numeric: tabular-nums; opacity: 0.85; }
+
+.rpuesto {
+  font-size: 2.3rem; font-weight: 800; line-height: 1;
+  margin: -4px 0 14px;
+}
+
+/* El selector con seis personajes necesita más aire y una ficha más chica. */
+.sec-tit small { opacity: 0.45; letter-spacing: 0; text-transform: none; font-weight: 400; }
+.chars { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+
+@media (max-width: 820px) {
+  .panel.carrera { top: auto; bottom: 14px; left: 8px; min-width: 128px; padding: 7px 9px; }
+  .puesto { font-size: 1.5rem; }
+  #tabla li { font-size: 0.68rem; }
+}

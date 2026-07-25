@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cartagena Skate — Descenso a Playa Chica</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="wrap">
+  <canvas id="game"></canvas>
+
+  <!-- ---------------------------------------------------------------- HUD -->
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="panel speed">
+        <div class="kmh"><span id="kmh">0</span><small>km/h</small></div>
+        <div class="bar"><i id="speedBar"></i></div>
+      </div>
+
+      <div class="panel middle">
+        <div id="section">Av. Cartagena Alto</div>
+        <canvas id="profile" width="440" height="46"></canvas>
+        <div class="meta">
+          <span id="dist">0 m</span>
+          <span id="alt">122 m s.n.m.</span>
+          <span id="time">0:00.0</span>
+        </div>
+      </div>
+
+      <div class="panel score">
+        <div class="pts"><span id="score">0</span></div>
+        <div class="lbl">puntos</div>
+      </div>
+    </div>
+
+    <div class="panel carrera">
+      <div id="puesto" class="puesto p1">1º</div>
+      <ol id="tabla"></ol>
+    </div>
+
+    <canvas id="minimap" width="190" height="150"></canvas>
+
+    <div id="comboBox" class="hidden">
+      <div id="comboText"></div>
+      <div id="comboPts"><span id="comboVal">0</span> <em id="comboMult">x1</em></div>
+    </div>
+
+    <div id="toasts"></div>
+
+    <div id="chargeBar" class="hidden"><i id="chargeFill"></i></div>
+  </div>
+
+  <!-- ------------------------------------------------------------- Menús -->
+  <div id="menu" class="screen">
+    <div class="card">
+      <h1>Cartagena <em>Skate</em></h1>
+      <p class="sub">Etapa 1 — Av. Cartagena 1555 <span class="arrow">→</span> Playa Chica</p>
+
+      <div class="stats-row">
+        <div><b>2,14</b><span>km</span></div>
+        <div><b>−111</b><span>m desnivel</span></div>
+        <div><b>15%</b><span>pendiente máx.</span></div>
+        <div><b>3</b><span>corredores</span></div>
+      </div>
+
+      <div class="ruta">
+        Av. Cartagena <span>·</span> bandejón <span>·</span> Plaza de Cartagena
+        <span>·</span> Municipalidad <span>·</span> zigzag <span>·</span> Playa Chica
+      </div>
+
+      <h3 class="sec-tit">Elige tu skater <small>· los otros dos te los sortea la calle</small></h3>
+      <div class="chars" id="chars"></div>
+
+      <div class="controls">
+        <div class="col">
+          <h3>Manejo</h3>
+          <ul>
+            <li><kbd>←</kbd><kbd>→</kbd> girar</li>
+            <li><kbd>↑</kbd> empujar</li>
+            <li><kbd>↓</kbd> frenar</li>
+            <li><kbd>Ctrl</kbd> tuck (menos roce)</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h3>Maniobras</h3>
+          <ul>
+            <li><kbd>Espacio</kbd> ollie <small>(mantén para cargar)</small></li>
+            <li><kbd>Shift</kbd> + girar → <b>derrape</b></li>
+            <li><kbd>Shift</kbd> junto a baranda → <b>grind</b></li>
+            <li><kbd>Q</kbd><kbd>E</kbd> girar en el aire</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h3>Trucos <small>(en el aire)</small></h3>
+          <ul>
+            <li><kbd>J</kbd> Kickflip</li>
+            <li><kbd>K</kbd> Heelflip</li>
+            <li><kbd>L</kbd> Pop Shove-it</li>
+            <li><kbd>U</kbd> Varial · <kbd>I</kbd> Impossible</li>
+          </ul>
+        </div>
+      </div>
+
+      <p class="tip">Encadena maniobras sin tocar el suelo para subir el multiplicador.
+        Aterriza derecho o te vas de raja y pierdes el combo.</p>
+
+      <button id="startBtn">Bajar</button>
+      <p class="foot"><kbd>R</kbd> reiniciar · <kbd>P</kbd> pausa · <kbd>M</kbd> silencio</p>
+    </div>
+  </div>
+
+  <div id="pause" class="screen hidden">
+    <div class="card small">
+      <h2>Pausa</h2>
+      <button id="resumeBtn">Seguir</button>
+      <button id="restartBtn2" class="ghost">Reiniciar</button>
+    </div>
+  </div>
+
+  <div id="results" class="screen hidden">
+    <div class="card small">
+      <h2>¡Llegaste a Playa Chica!</h2>
+      <div id="rPuesto" class="rpuesto p1">—</div>
+      <div class="result-grid">
+        <div><span>Tiempo</span><b id="rTime">—</b></div>
+        <div><span>Puntaje</span><b id="rScore">—</b></div>
+        <div><span>Mejor combo</span><b id="rCombo">—</b></div>
+        <div><span>Maniobras</span><b id="rTricks">—</b></div>
+        <div><span>Turbos</span><b id="rBoosts">—</b></div>
+        <div><span>Caídas</span><b id="rBails">—</b></div>
+      </div>
+      <div id="rank"></div>
+      <button id="againBtn">Otra vez</button>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------------------- Táctil -->
+  <div id="touch" class="hidden">
+    <div class="tpad left">
+      <button data-key="ArrowLeft">◀</button>
+      <button data-key="ArrowRight">▶</button>
+    </div>
+    <div class="tpad right">
+      <button data-key="Shift" class="wide">SLIDE</button>
+      <button data-key="j">FLIP</button>
+      <button data-key="e">SPIN</button>
+      <button data-key=" " class="big">OLLIE</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="js/game.js"></script>
+</body>
+</html>
