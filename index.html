@@ -2,7 +2,7 @@
 <html lang="es-CL">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Cartagena Skate — Descenso a Playa Chica</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -108,6 +108,7 @@
 
       <button id="startBtn">Bajar</button>
       <p class="foot"><kbd>R</kbd> reiniciar · <kbd>P</kbd> pausa · <kbd>M</kbd> silencio</p>
+      <p class="foot"><label class="chk"><input type="checkbox" id="forzarTactil"> Mostrar controles táctiles</label></p>
     </div>
   </div>
 
@@ -137,18 +138,39 @@
   </div>
 
   <!-- ------------------------------------------------------------- Táctil -->
+  <!-- data-key lleva la tecla YA NORMALIZADA (la misma cadena que usa
+       readInput), para que no haya un segundo mapeo que se pueda desincronizar
+       del teclado. Antes "Control" no se traducía a "ctrl" y el tuck no hacía
+       nada en el celular. -->
   <div id="touch" class="hidden">
-    <div class="tpad left">
-      <button data-key="ArrowLeft">◀</button>
-      <button data-key="ArrowRight">▶</button>
+    <div class="tzone izq">
+      <div class="trow">
+        <button class="tbtn chico" data-key="ArrowUp">EMPUJAR</button>
+        <button class="tbtn chico" data-key="ArrowDown">FRENAR</button>
+      </div>
+      <div class="trow">
+        <button class="tbtn dir" data-key="ArrowLeft" aria-label="Girar a la izquierda">◀</button>
+        <button class="tbtn dir" data-key="ArrowRight" aria-label="Girar a la derecha">▶</button>
+      </div>
     </div>
-    <div class="tpad right">
-      <button data-key="Shift" class="wide">SLIDE</button>
-      <button data-key="j">FLIP</button>
-      <button data-key="e">SPIN</button>
-      <button data-key=" " class="big">OLLIE</button>
+
+    <div class="tzone der">
+      <div class="trow">
+        <button class="tbtn chico" data-key="j">FLIP</button>
+        <button class="tbtn chico" data-key="e">GIRO</button>
+      </div>
+      <div class="trow">
+        <button class="tbtn chico" data-key="ctrl">TUCK</button>
+        <button class="tbtn ancho" data-key="shift">SLIDE</button>
+      </div>
+      <button class="tbtn grande" data-key=" ">OLLIE</button>
     </div>
   </div>
+
+  <div id="giraTel" class="hidden">
+    <div><b>Gira el teléfono</b><span>Se juega mejor en horizontal</span></div>
+  </div>
+
 </div>
 
 <script type="module" src="js/game.js"></script>

@@ -293,25 +293,6 @@ button.ghost {
   color: var(--pacifico); letter-spacing: 0.03em;
 }
 
-/* --------------------------------------------------------------- Táctil */
-
-#touch { position: absolute; inset: 0; pointer-events: none; }
-.tpad { position: absolute; bottom: 16px; display: flex; gap: 8px; pointer-events: auto; }
-.tpad.left  { left: 16px; }
-.tpad.right { right: 16px; flex-wrap: wrap; width: 190px; justify-content: flex-end; }
-.tpad button {
-  margin: 0; width: 62px; height: 62px; padding: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.13);
-  border: 1px solid var(--borde);
-  color: var(--cal);
-  font-size: 0.62rem; letter-spacing: 0.04em;
-  backdrop-filter: blur(4px);
-}
-.tpad button.wide { width: 88px; border-radius: 31px; }
-.tpad button.big  { width: 88px; height: 88px; background: rgba(47, 185, 160, 0.28); }
-.tpad button:active { background: rgba(255, 255, 255, 0.3); transform: none; }
-
 @media (max-width: 820px) {
   .hud-top { flex-wrap: wrap; gap: 8px; padding: 8px; }
   .panel.middle { order: 3; flex-basis: 100%; }
@@ -363,4 +344,98 @@ button.ghost {
   .panel.carrera { top: auto; bottom: 14px; left: 8px; min-width: 128px; padding: 7px 9px; }
   .puesto { font-size: 1.5rem; }
   #tabla li { font-size: 0.68rem; }
+}
+
+/* --------------------------------------------------------------- Táctil */
+
+/*
+ * Controles para celular. Pensados para pulgares: nada crítico queda en el
+ * centro de la pantalla, los botones tienen al menos 56 px (el mínimo cómodo)
+ * y el OLLIE es el más grande porque es el que más se usa.
+ */
+
+#touch {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.tzone {
+  position: absolute; bottom: 12px;
+  display: flex; flex-direction: column; gap: 8px;
+  pointer-events: auto;
+}
+.tzone.izq { left: 12px; align-items: flex-start; }
+.tzone.der { right: 12px; align-items: flex-end; }
+.trow { display: flex; gap: 8px; align-items: flex-end; }
+
+.tbtn {
+  margin: 0; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: var(--cal);
+  font: 700 0.58rem/1 inherit;
+  letter-spacing: 0.05em;
+  backdrop-filter: blur(5px);
+  border-radius: 14px;
+  text-transform: none;
+  transition: none;                 /* la latencia se nota al jugar */
+  -webkit-tap-highlight-color: transparent;
+}
+.tbtn.dir    { width: 74px; height: 66px; font-size: 1.4rem; }
+.tbtn.chico  { width: 62px; height: 46px; }
+.tbtn.ancho  { width: 92px; height: 46px; }
+.tbtn.grande {
+  width: 92px; height: 92px; border-radius: 50%;
+  font-size: 0.72rem;
+  background: rgba(47, 185, 160, 0.32);
+  border-color: rgba(47, 185, 160, 0.6);
+}
+/* .activo lo pone el JS al tocar: :active no es fiable con multitouch. */
+.tbtn.activo { background: rgba(255, 255, 255, 0.42); transform: scale(0.96); }
+.tbtn.grande.activo { background: rgba(47, 185, 160, 0.62); }
+
+/* Aviso de orientación: en vertical no caben los dos pulgares y la pista. */
+#giraTel {
+  position: absolute; inset: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(6, 10, 13, 0.94);
+  text-align: center;
+}
+#giraTel div { display: flex; flex-direction: column; gap: 8px; }
+#giraTel b { font-size: 1.3rem; color: var(--cono); }
+#giraTel span { font-size: 0.85rem; opacity: 0.65; }
+
+.chk { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.chk input { accent-color: var(--pacifico); }
+
+/* En pantallas bajas (celular en horizontal) el menú tiene que caber entero. */
+@media (max-height: 460px) {
+  .screen { align-items: flex-start; padding: 8px; }
+  .card { padding: 14px 18px 12px; }
+  h1 { font-size: 1.6rem; }
+  .stats-row { margin: 8px 0 10px; gap: 16px; }
+  .stats-row b { font-size: 1.1rem; }
+  .controls { display: none; }         /* en táctil los botones están en pantalla */
+  .tip, .ruta { display: none; }
+  .chars { gap: 6px; margin-bottom: 10px; }
+  .char { padding: 6px; }
+  .char-desc { display: none; }
+  button { margin-top: 10px; padding: 9px 28px; }
+}
+
+/*
+ * Con los controles en pantalla el minimapa ya no cabe abajo a la derecha: ahí
+ * va el OLLIE, que es el botón más usado. Se sube bajo la tabla de carrera.
+ */
+body.tactil #minimap {
+  left: 10px; right: auto;
+  /* Justo bajo la tabla de carrera, que con tres corredores llega a 232 px. */
+  top: 240px; bottom: auto;
+  width: 112px; height: 86px;
+}
+/* Si ni siquiera eso cabe, el minimapa es lo primero que sobra. */
+@media (max-height: 400px) {
+  body.tactil #minimap { display: none; }
 }

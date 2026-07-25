@@ -66,6 +66,7 @@ const ui = {
   rank: el('rank'), chars: el('chars'),
   puesto: el('puesto'), tabla: el('tabla'),
   rPuesto: el('rPuesto'),
+  girar: el('giraTel'), forzar: el('forzarTactil'),
 };
 
 let state = 'menu';   // menu | playing | paused | finished
@@ -109,19 +110,96 @@ window.addEventListener('keydown', e => {
 });
 
 window.addEventListener('keyup', e => held.delete(normKey(e)));
-window.addEventListener('blur', () => held.clear());
+window.addEventListener('blur', () => { held.clear(); punteros.clear(); 
+  for (const b of document.querySelectorAll('#touch .activo')) b.classList.remove('activo'); });
 
-// Controles táctiles: los botones sintetizan las mismas teclas.
-for (const btn of document.querySelectorAll('#touch button')) {
-  const k = btn.dataset.key === ' ' ? ' ' : btn.dataset.key.toLowerCase() === 'shift'
-          ? 'shift' : btn.dataset.key.startsWith('Arrow') ? btn.dataset.key : btn.dataset.key.toLowerCase();
-  const down = e => { e.preventDefault(); if (!held.has(k)) justPressed.add(k); held.add(k); };
-  const up   = e => { e.preventDefault(); held.delete(k); };
-  btn.addEventListener('pointerdown', down);
-  btn.addEventListener('pointerup', up);
-  btn.addEventListener('pointercancel', up);
-  btn.addEventListener('pointerleave', up);
+/* ------------------------------------------------------------------ */
+/* Controles táctiles                                                  */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Los botones alimentan el MISMO conjunto `held` que el teclado, y su
+ * `data-key` ya viene normalizado: no hay una segunda tabla de traducción que
+ * se pueda desincronizar. (La versión anterior no traducía "Control" a "ctrl",
+ * así que el tuck no existía en celular.)
+ *
+ * Se capturan por puntero individual —no con :active— porque con dos pulgares
+ * a la vez el navegador reparte los eventos de forma poco fiable: hay que
+ * seguir cada pointerId y soltar sólo el suyo.
+ */
+/*
+ * Se sigue cada dedo por su pointerId. La pulsación se toma en el botón, pero
+ * el soltar se escucha en la VENTANA: si el dedo se desliza fuera del botón
+ * antes de levantarlo, la tecla igual se libera y no queda trabada.
+ *
+ * Nada de setPointerCapture: al capturar el segundo dedo el navegador dispara
+ * `lostpointercapture` del primero, y usar ese evento como "soltar" hacía que
+ * un dedo cancelara al otro. Con dos pulgares —girar y saltar a la vez— el
+ * juego se volvía injugable.
+ */
+const punteros = new Map();          // pointerId -> { k, btn }
+
+function soltar(id) {
+  const p = punteros.get(id);
+  if (!p) return;
+  punteros.delete(id);
+  // Sólo se libera la tecla si ningún otro dedo la sigue pisando.
+  const sigue = [...punteros.values()].some(o => o.k === p.k);
+  if (!sigue) held.delete(p.k);
+  p.btn.classList.remove('activo');
 }
+
+for (const btn of document.querySelectorAll('#touch .tbtn')) {
+  const k = btn.dataset.key;
+  btn.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    punteros.set(e.pointerId, { k, btn });
+    if (!held.has(k)) justPressed.add(k);
+    held.add(k);
+    btn.classList.add('activo');
+  });
+  // Un menú contextual por pulsación larga interrumpe la partida.
+  btn.addEventListener('contextmenu', e => e.preventDefault());
+}
+for (const ev of ['pointerup', 'pointercancel']) {
+  window.addEventListener(ev, e => soltar(e.pointerId));
+}
+
+/*
+ * Cuándo mostrarlos. `pointer: coarse` acierta en casi todos los teléfonos,
+ * pero falla en híbridos y en algunos navegadores de escritorio con pantalla
+ * táctil, así que hay tres caminos: la detección, el primer toque real sobre
+ * el juego, y una casilla en el menú.
+ */
+let tactil = window.matchMedia('(pointer: coarse)').matches ||
+             navigator.maxTouchPoints > 0;
+try { if (localStorage.getItem('cs.tactil') === '1') tactil = true; } catch { /* sin persistencia */ }
+
+function aplicarTactil() {
+  const mostrar = tactil && state !== 'menu';
+  ui.touch.classList.toggle('hidden', !mostrar);
+  // La clase en <body> permite al CSS reacomodar el HUD alrededor de los
+  // botones (el minimapa comparte esquina con el OLLIE).
+  document.body.classList.toggle('tactil', tactil);
+  if (ui.forzar) ui.forzar.checked = tactil;
+  revisarOrientacion();
+}
+
+// Si alguien toca la pantalla, es táctil: no hace falta más detección.
+window.addEventListener('touchstart', () => {
+  if (!tactil) { tactil = true; aplicarTactil(); }
+}, { passive: true, once: true });
+
+/*
+ * En vertical no caben los dos pulgares y la pista a la vez, así que se pide
+ * girar el teléfono en vez de entregar una pantalla injugable.
+ */
+function revisarOrientacion() {
+  const vertical = tactil && window.innerHeight > window.innerWidth;
+  ui.girar.classList.toggle('hidden', !vertical);
+}
+window.addEventListener('orientationchange', () => setTimeout(revisarOrientacion, 150));
+window.addEventListener('resize', revisarOrientacion);
 
 function readInput() {
   const left  = held.has('ArrowLeft')  || held.has('a');
@@ -158,8 +236,10 @@ function start() {
   ui.results.classList.add('hidden');
   ui.pause.classList.add('hidden');
   ui.hud.classList.remove('hidden');
-  if (isTouch()) ui.touch.classList.remove('hidden');
+  // El orden importa: aplicarTactil() consulta `state`, así que va DESPUÉS de
+  // marcar la partida como en curso.
   state = 'playing';
+  aplicarTactil();
   lastTime = performance.now();
   accumulator = 0;
 }
@@ -180,9 +260,11 @@ function togglePause() {
   }
 }
 
-function isTouch() {
-  return window.matchMedia('(pointer: coarse)').matches;
-}
+ui.forzar?.addEventListener('change', e => {
+  tactil = e.target.checked;
+  try { localStorage.setItem('cs.tactil', tactil ? '1' : '0'); } catch { /* sin persistencia */ }
+  aplicarTactil();
+});
 
 el('startBtn').addEventListener('click', start);
 el('againBtn').addEventListener('click', start);
@@ -266,6 +348,7 @@ function elegirPersonaje(id) {
 
 pintarSelector();
 elegirPersonaje(personaje);
+aplicarTactil();
 
 /* ------------------------------------------------------------------ */
 /* Avisos                                                              */
@@ -341,6 +424,7 @@ function showResults(ev) {
 
   ui.results.classList.remove('hidden');
   ui.touch.classList.add('hidden');
+  ui.girar.classList.add('hidden');
 }
 
 /* ------------------------------------------------------------------ */

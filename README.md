@@ -33,6 +33,29 @@ Requiere un navegador con WebGL.
 | `J` `K` `L` `U` `I` | Kickflip · Heelflip · Pop Shove-it · Varial · Impossible |
 | `R` `P` `M` | Reiniciar · Pausa · Silencio |
 
+### En el celular
+
+Los controles táctiles aparecen solos al detectar pantalla táctil, al primer
+toque, o marcando la casilla del menú si la detección falla. Son nueve botones:
+empujar, frenar, girar a cada lado, tuck, slide, flip, giro y ollie.
+
+Se juega **en horizontal**: en vertical no caben los dos pulgares y la pista, así
+que el juego pide girar el teléfono en vez de entregar una pantalla injugable.
+
+Un par de cosas que hubo que resolver:
+
+- El `data-key` de cada botón lleva la tecla **ya normalizada**, la misma cadena
+  que lee el teclado. Con un segundo mapeo aparte, `Control` no se traducía a
+  `ctrl` y el tuck simplemente no existía en celular.
+- Nada de `setPointerCapture`: al capturar el segundo dedo, el navegador dispara
+  `lostpointercapture` del primero, y usar ese evento como «soltar» hacía que un
+  dedo cancelara al otro. Con dos pulgares —girar y saltar a la vez— el juego se
+  volvía injugable. La pulsación se toma en el botón y el soltar se escucha en la
+  ventana, siguiendo cada dedo por su `pointerId`.
+- En pantalla táctil el `devicePixelRatio` se limita a 1,5: rellenar 2 km de
+  escena a DPR 3 en una GPU móvil hunde los cuadros por segundo y la diferencia
+  no se ve.
+
 Las maniobras encadenadas sin tocar el suelo suben el multiplicador (tope x8).
 El combo se cobra al aterrizar limpio, al salir de una baranda o al cerrar un
 derrape. Hay que **aterrizar alineado**: si tocas el suelo a más de 75° del
