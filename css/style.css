@@ -439,3 +439,27 @@ body.tactil #minimap {
 @media (max-height: 400px) {
   body.tactil #minimap { display: none; }
 }
+
+/*
+ * En pantallas angostas la regla de arriba manda la tabla de carrera abajo a la
+ * izquierda — que es exactamente donde van los botones de girar. Con los
+ * controles en pantalla la tabla se queda arriba y el minimapa cuelga debajo.
+ * Va al final del archivo a propósito: tiene que ganarle a la media query.
+ */
+body.tactil .panel.carrera {
+  top: 96px; bottom: auto; left: 10px;
+  min-width: 132px; padding: 7px 10px;
+}
+body.tactil .puesto { font-size: 1.5rem; }
+body.tactil #tabla li { font-size: 0.68rem; }
+body.tactil #minimap { top: 210px; }
+
+/*
+ * Muy poca altura (celular apaisado con la barra del navegador): la tabla de
+ * tres filas ya no cabe sobre los botones de empujar. Se deja sólo el número
+ * de puesto, que es el dato que se mira de reojo mientras se baja.
+ */
+@media (max-height: 340px) {
+  body.tactil #tabla { display: none; }
+  body.tactil .panel.carrera { padding: 5px 10px; min-width: 0; }
+}
