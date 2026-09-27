@@ -53,6 +53,11 @@ const LANDMARKS = [
   { dist: 1500, kind: 'plaza',     lado: -34, name: 'Plaza de Cartagena' },
   { dist: 1585, kind: 'municipal', lado: -22, name: 'Municipalidad de Cartagena' },
   { dist: 1520, kind: 'bandejonFin' },
+  // La bajada por Condell hacia Playa Chica: pasando la curva, a la derecha,
+  // la casa del mural del pescador; un poco más abajo, a la izquierda, el
+  // Gato Negro pub-discoteque.
+  { dist: 1720, kind: 'pescador',  lado:  13, name: 'Casa del Pescador' },
+  { dist: 1790, kind: 'gatoNegro', lado: -13, name: 'Gato Negro — pub discoteque' },
   { dist: 2040, kind: 'paradero',  lado:  14, name: 'Costanera Playa Chica' },
 ];
 

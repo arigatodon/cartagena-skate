@@ -63,7 +63,8 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
  * y un cono te botaba desde metro y medio de distancia.
  */
 const SKATER_HALF = 0.30;
-const HALF_WIDTH = { auto: 0.9, hoyo: 0.8, cono: 0.3, perro: 0.35, basura: 0.5 };
+const HALF_WIDTH = { auto: 0.85, micro: 1.15, hoyo: 0.8, cono: 0.3,
+                     perro: 0.35, basura: 0.5, peaton: 0.3 };
 const KICKER_HALF = 2.8;   // la cuña mide 5,6 m de ancho
 const BOOST_HALF  = 3.0;   // el galón mide 6 m de ancho
 
@@ -505,7 +506,10 @@ export class Player {
           case 'obstacle': {
             if (!entering) break;
             if (gap(prop.x) > (HALF_WIDTH[prop.kind] || 0.5) + SKATER_HALF) break;
-            if (this.airborne && this.airY > (prop.kind === 'auto' ? 1.5 : 0.7)) break;
+            // Altura para librar el obstáculo saltando: el techo del auto va
+            // a 1,3 m y el de la micro a 2,6 m; la micro no se salta.
+            if (this.airborne && this.airY >
+                (prop.kind === 'micro' ? 2.7 : prop.kind === 'auto' ? 1.4 : 0.7)) break;
             this.hitObstacle(prop);
             break;
           }

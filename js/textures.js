@@ -223,6 +223,132 @@ export const local = (seed) => tex(`local${seed}`, 256, 256, (g, S) => {
   }
 });
 
+/*
+ * Muro de piedra canteada, como el zócalo de la casa del pescador de Condell:
+ * bolones irregulares grises con junta de mortero claro.
+ */
+export const piedra = () => tex('piedra', 256, 256, (g, S) => {
+  const rnd = mulberry(0x91ED4A);
+  g.fillStyle = '#b9b2a2'; g.fillRect(0, 0, S, S);
+  for (let y = 0; y < S; y += 34) {
+    for (let x = -10; x < S; x += 44) {
+      const off = ((y / 34) % 2) * 20;
+      const v = 92 + rnd() * 60;
+      g.fillStyle = `rgb(${v | 0},${(v * 0.96) | 0},${(v * 0.88) | 0})`;
+      g.beginPath();
+      g.ellipse(x + off + 20 + rnd() * 6, y + 16 + rnd() * 4,
+                17 + rnd() * 7, 12 + rnd() * 4, rnd() * 0.6 - 0.3, 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+}, { repeat: [2, 1] });
+
+/*
+ * El mural del pescador de la bajada por Condell: la casa blanca con el
+ * clásico dibujo del pescador cargando la vara con la pesca al hombro,
+ * parado sobre la arena con la red tendida.
+ */
+export const muralPescador = () => tex('muralPescador', 256, 256, (g, S) => {
+  // Muro encalado con marco oscuro, como el original.
+  g.fillStyle = '#efe9db'; g.fillRect(0, 0, S, S);
+  grain(g, S, S, 215, 30, 0.08);
+  g.strokeStyle = '#4a4238'; g.lineWidth = 7;
+  g.strokeRect(8, 8, S - 16, S - 16);
+
+  // Arena y la red tendida a los pies.
+  g.fillStyle = '#d9c08a';
+  g.beginPath();
+  g.moveTo(12, S - 60); g.quadraticCurveTo(S / 2, S - 92, S - 12, S - 56);
+  g.lineTo(S - 12, S - 12); g.lineTo(12, S - 12); g.closePath(); g.fill();
+  g.strokeStyle = 'rgba(122,96,58,0.55)'; g.lineWidth = 1.5;
+  for (let i = 0; i < 6; i++) {
+    g.beginPath(); g.moveTo(60 + i * 8, S - 74); g.lineTo(150 + i * 14, S - 22); g.stroke();
+    g.beginPath(); g.moveTo(150 - i * 12, S - 78); g.lineTo(60 + i * 16, S - 20); g.stroke();
+  }
+
+  // El pescador: pantalón arremangado, camisa amarilla, al hombro la vara.
+  g.fillStyle = '#5a6858';                                   // pantalón
+  g.fillRect(116, 150, 12, 46); g.fillRect(132, 150, 12, 46);
+  g.fillStyle = '#c9a11f';                                   // camisa amarilla
+  g.fillRect(108, 96, 44, 58);
+  g.fillRect(96, 100, 16, 40);                               // brazo que sujeta
+  g.fillStyle = '#c58c58';                                   // cabeza y manos
+  g.beginPath(); g.arc(130, 82, 13, 0, Math.PI * 2); g.fill();
+  g.fillRect(96, 136, 10, 10);
+  g.fillStyle = '#3a2e22';                                   // pelo
+  g.beginPath(); g.arc(130, 76, 12, Math.PI, 0); g.fill();
+
+  // La vara al hombro con la pesca colgando de ambas puntas.
+  g.strokeStyle = '#5b4426'; g.lineWidth = 5;
+  g.beginPath(); g.moveTo(58, 118); g.lineTo(206, 74); g.stroke();
+  g.fillStyle = '#8fa3ad';
+  for (const [px, py] of [[62, 122], [74, 130], [196, 80], [186, 90]]) {
+    g.save(); g.translate(px, py); g.rotate(1.35);
+    g.beginPath(); g.ellipse(0, 0, 15, 5, 0, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.moveTo(13, 0); g.lineTo(21, -5); g.lineTo(21, 5); g.closePath(); g.fill();
+    g.restore();
+  }
+});
+
+/*
+ * Letrero del Gato Negro, el pub-discoteque de la bajada a Playa Chica:
+ * fondo rojo, el gato y las letras verdosas estilo graffiti del original.
+ */
+export const letreroGato = () => tex('letreroGato', 512, 128, (g, W, H) => {
+  g.fillStyle = '#a81b12'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#8c130c'; g.fillRect(0, H - 26, W, 26);
+  g.strokeStyle = '#2b0a06'; g.lineWidth = 6; g.strokeRect(3, 3, W - 6, H - 6);
+
+  // El gato negro sentado, de perfil.
+  g.fillStyle = '#17130f';
+  g.beginPath(); g.ellipse(62, 78, 26, 30, -0.15, 0, Math.PI * 2); g.fill();  // cuerpo
+  g.beginPath(); g.arc(78, 40, 16, 0, Math.PI * 2); g.fill();                 // cabeza
+  g.beginPath(); g.moveTo(66, 32); g.lineTo(70, 12); g.lineTo(78, 28); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(82, 28); g.lineTo(90, 10); g.lineTo(92, 30); g.closePath(); g.fill();
+  g.strokeStyle = '#17130f'; g.lineWidth = 7;
+  g.beginPath(); g.moveTo(38, 96); g.quadraticCurveTo(16, 84, 22, 58); g.stroke(); // cola
+  g.fillStyle = '#d8c93c';
+  g.beginPath(); g.arc(74, 38, 2.6, 0, Math.PI * 2); g.fill();                // ojo
+
+  // "gato negro" con letra gruesa desordenada, y abajo "pub · discoteque".
+  g.fillStyle = '#c6d24a';
+  g.font = 'italic bold 52px sans-serif';
+  g.save(); g.translate(118, 62); g.rotate(-0.03);
+  g.fillText('gato', 0, 0); g.restore();
+  g.save(); g.translate(232, 74); g.rotate(0.04);
+  g.fillText('negro', 0, 0); g.restore();
+  g.strokeStyle = '#2b0a06'; g.lineWidth = 2;
+  g.font = 'bold 24px sans-serif';
+  g.fillStyle = '#f2ede2';
+  g.fillText('pub  ·  discoteque', 150, 112);
+});
+
+// Letrero institucional de la Municipalidad.
+export const letreroMuni = () => tex('letreroMuni', 512, 64, (g, W, H) => {
+  g.fillStyle = '#f2efe6'; g.fillRect(0, 0, W, H);
+  g.strokeStyle = '#8a8272'; g.lineWidth = 4; g.strokeRect(2, 2, W - 4, H - 4);
+  g.fillStyle = '#243a55';
+  g.font = 'bold 30px sans-serif';
+  g.textAlign = 'center';
+  g.fillText('I. MUNICIPALIDAD DE CARTAGENA', W / 2, 42);
+});
+
+// Bandera chilena para el mástil de la Municipalidad.
+export const banderaChile = () => tex('banderaChile', 128, 96, (g, W, H) => {
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H / 2);
+  g.fillStyle = '#d0342c'; g.fillRect(0, H / 2, W, H / 2);
+  g.fillStyle = '#1f3f8f'; g.fillRect(0, 0, W / 3, H / 2);
+  // Estrella
+  g.fillStyle = '#ffffff';
+  const cx = W / 6, cy = H / 4, r = 11;
+  g.beginPath();
+  for (let i = 0; i < 5; i++) {
+    const a = -Math.PI / 2 + i * (Math.PI * 4 / 5);
+    g[i ? 'lineTo' : 'moveTo'](cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+  }
+  g.closePath(); g.fill();
+});
+
 export const tejaRoja = () => tex('tejaRoja', 128, 128, (g, S) => {
   g.fillStyle = '#8f4a35'; g.fillRect(0, 0, S, S);
   for (let y = 0; y < S; y += 16) {

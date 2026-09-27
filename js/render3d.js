@@ -23,10 +23,25 @@ import { ROAD_HALF } from './track.js';
 import * as TX from './textures.js';
 import { buildCharacter, poseCharacter, getChar } from './characters.js';
 
-const CAM_BACK  = 7.2;
-const CAM_UP    = 3.0;
+const CAM_BACK  = 5.4;
+const CAM_UP    = 2.15;
 const CAM_AHEAD = 34;
 const FAR       = 3400;
+
+/*
+ * El sol. ALTURA sobre el horizonte manda el largo de las sombras; AZIMUT es
+ * hacia dónde mira, medido desde el poniente (0 = justo al oeste, sobre el mar
+ * y al final de la bajada).
+ */
+const SOL_ALTURA = 13.5 * Math.PI / 180;
+const SOL_AZIMUT = 14 * Math.PI / 180;
+// Lado del cuadrado que cubre el mapa de sombras, en metros. Tiene que dar para
+// que quepa el objeto Y su sombra: un eucalipto de 18 m tira 75 m con este sol.
+const SOMBRA_LADO = 210;
+
+// La bruma del atardecer. Es el mismo color que el horizonte del cielo: si no
+// coinciden, los cerros lejanos se recortan contra el cielo con un borde sucio.
+const COLOR_BRUMA = 0xf0c489;
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp  = (a, b, t) => a + (b - a) * t;
@@ -58,10 +73,14 @@ export class Renderer3D {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, movil ? 1.5 : 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.15;
+    // 0,95: con el sol de atardecer a 2,35 las fachadas al poniente se iban a
+    // blanco puro y se perdía el color de la casa.
+    this.renderer.toneMappingExposure = 0.95;
 
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.Fog(0xc6d7df, 320, 2400);
+    // Empieza cerca (170 m) a propósito: la bruma es lo que hace que la avenida
+    // se pierda cuesta abajo y que el mar del fondo se lea como distancia.
+    this.scene.fog = new THREE.Fog(COLOR_BRUMA, 170, 1900);
 
     // 68°: con 74° la distorsión del borde agrandaba de forma absurda los autos
     // que pasaban cerca. Sube con la velocidad hasta 82°.
@@ -244,36 +263,126 @@ export class Renderer3D {
            this.enPoligono(x, z, this.track.geo.playaGrande);
   }
 
+  /*
+   * Atardecer, no mediodía.
+   *
+   * El sol se pone sobre el Pacífico, o sea justo al final de la bajada: viene
+   * DE FRENTE y muy bajo. Eso hace tres cosas que definen la estampa: tiñe
+   * todo de dorado, deja las fachadas del poniente a contraluz, y tira las
+   * sombras hacia la cámara, largas y atravesadas en la calzada.
+   *
+   * SOL_ALTURA es el ángulo del sol sobre el horizonte, y manda el largo de las
+   * sombras: una casa de 6 m proyecta 6/tan(14°) = 24 m. Es el único número que
+   * hay que mover si las sombras se ven cortas.
+   */
   buildLights() {
-    this.scene.add(new THREE.HemisphereLight(0xdcefff, 0x9d8a68, 1.45));
-    // Sol de tarde sobre el Pacífico: al poniente, o sea de frente al bajar.
-    const sun = new THREE.DirectionalLight(0xfff0d2, 1.3);
-    sun.position.set(-1200, 500, 300);
-    this.scene.add(sun);
-    const fill = new THREE.DirectionalLight(0xbcd8ee, 0.55);
-    fill.position.set(600, 240, -500);
+    // Luz de relleno: lo que no toca el sol se llena con el azul del cielo por
+    // arriba y el rebote tostado del cerro por abajo. Baja (0,55) a propósito —
+    // con relleno alto las sombras se aguan y se pierde el contraste del
+    // contraluz.
+    this.scene.add(new THREE.HemisphereLight(0x9dc0e8, 0x6d5334, 0.62));
+
+    const dir = new THREE.Vector3(
+      -Math.cos(SOL_ALTURA) * Math.cos(SOL_AZIMUT), Math.sin(SOL_ALTURA),
+      -Math.cos(SOL_ALTURA) * Math.sin(SOL_AZIMUT));
+    this.solDir = dir.clone().normalize();
+    this.solOffset = this.solDir.clone().multiplyScalar(SOMBRA_LADO * 0.85);
+
+    const sun = new THREE.DirectionalLight(0xffc47a, 2.35);
+    sun.position.copy(this.solOffset);
+    this.scene.add(sun, sun.target);
+    this.sun = sun;
+
+    /*
+     * Sombras: el mapa cubre un cuadrado de SOMBRA_LADO que se mueve con el
+     * jugador, no la escena entera. Cubrir 2 km de avenida con un mapa daría
+     * un texel de medio metro y las sombras saldrían como manchas.
+     */
+    const movil = window.matchMedia('(pointer: coarse)').matches;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    sun.castShadow = true;
+    const res = movil ? 1024 : 2048;
+    sun.shadow.mapSize.set(res, res);
+    const h = SOMBRA_LADO / 2;
+    sun.shadow.camera.left = -h; sun.shadow.camera.right = h;
+    sun.shadow.camera.top = h;   sun.shadow.camera.bottom = -h;
+    sun.shadow.camera.near = 1;
+    sun.shadow.camera.far = SOMBRA_LADO * 2.2;
+    // normalBias saca el acné de las superficies grandes y casi paralelas al
+    // sol, que con un sol tan rasante son justamente la calzada y las veredas.
+    sun.shadow.bias = -0.0004;
+    sun.shadow.normalBias = 0.09;
+
+    // Contraluz frío desde el oriente: despega las siluetas del fondo dorado.
+    const fill = new THREE.DirectionalLight(0x8fb4d8, 0.35);
+    fill.position.set(600, 300, -500);
     this.scene.add(fill);
   }
 
+  /*
+   * Reparte qué proyecta sombra y qué la recibe. Se hace de una pasada al final
+   * porque marcarlo malla por malla dentro de cada constructor se desincroniza
+   * en cuanto se agrega geometría nueva.
+   *
+   * userData.sombra: 'no' queda fuera del sistema (cielo, mar, marcas del
+   * pavimento); 'recibe' sólo la recibe (el terreno no necesita proyectarse
+   * sobre sí mismo y es la malla más pesada de la escena).
+   */
+  aplicarSombras() {
+    this.scene.traverse(o => {
+      if (!o.isMesh && !o.isInstancedMesh) return;
+      const modo = o.userData.sombra;
+      if (modo === 'no') return;
+      o.receiveShadow = true;
+      o.castShadow = modo !== 'recibe';
+    });
+  }
+
+  /*
+   * Cielo de atardecer. Dos degradados superpuestos: el vertical de siempre
+   * (azul en el cenit, claro en el horizonte) y encima un halo que se enciende
+   * alrededor de la posición del sol.
+   *
+   * El halo es lo que hace la diferencia: sin él el cielo queda parejo y la
+   * bajada al mar no tiene hacia dónde ir. Con él, el fondo de la avenida es
+   * una mancha de luz y toda la composición apunta ahí.
+   */
   buildSky() {
     const mat = new THREE.ShaderMaterial({
-      side: THREE.BackSide, depthWrite: false,
+      side: THREE.BackSide, depthWrite: false, fog: false,
       uniforms: {
-        cenit:     { value: new THREE.Color(0x2f77b8) },
-        medio:     { value: new THREE.Color(0x8fc0dd) },
-        horizonte: { value: new THREE.Color(0xe2ecf1) },
+        cenit:     { value: new THREE.Color(0x2a5f9e) },
+        medio:     { value: new THREE.Color(0x86a8c8) },
+        horizonte: { value: new THREE.Color(COLOR_BRUMA) },
+        halo:      { value: new THREE.Color(0xffd79a) },
+        disco:     { value: new THREE.Color(0xfff3d8) },
+        solDir:    { value: this.solDir.clone() },
       },
-      vertexShader: `varying float vH;
+      vertexShader: `varying vec3 vDir;
         void main(){ vec4 wp = modelMatrix*vec4(position,1.0);
-          vH = normalize(wp.xyz - cameraPosition).y;
+          vDir = normalize(wp.xyz - cameraPosition);
           gl_Position = projectionMatrix*viewMatrix*wp; }`,
-      fragmentShader: `uniform vec3 cenit,medio,horizonte; varying float vH;
-        void main(){ float h=clamp(vH,-1.0,1.0);
-          vec3 c = h>0.0 ? mix(medio,cenit,pow(h,0.7)) : mix(medio,horizonte,pow(-h,0.35));
-          gl_FragColor=vec4(c,1.0); }`,
+      fragmentShader: `
+        uniform vec3 cenit,medio,horizonte,halo,disco,solDir;
+        varying vec3 vDir;
+        void main(){
+          vec3 d = normalize(vDir);
+          float h = clamp(d.y, -1.0, 1.0);
+          vec3 c = h > 0.0 ? mix(medio, cenit, pow(h, 0.62))
+                           : mix(medio, horizonte, pow(-h, 0.30));
+          // Franja cálida pegada al horizonte, en toda la vuelta.
+          c = mix(c, horizonte, pow(1.0 - min(abs(h) * 5.5, 1.0), 2.0) * 0.75);
+          // Halo del sol: ancho y suave, más un núcleo chico y brillante.
+          float cos_ = max(dot(d, normalize(solDir)), 0.0);
+          c = mix(c, halo, pow(cos_, 3.5) * 0.85);
+          c = mix(c, disco, pow(cos_, 110.0));
+          gl_FragColor = vec4(c, 1.0);
+        }`,
     });
     this.sky = new THREE.Mesh(new THREE.SphereGeometry(FAR * 0.9, 32, 20), mat);
     this.sky.frustumCulled = false;
+    this.sky.userData.sombra = 'no';
     this.scene.add(this.sky);
   }
 
@@ -1018,18 +1127,138 @@ export class Renderer3D {
     }
   }
 
+  /*
+   * Coloca un modelo compuesto por varias piezas instanciadas. `parts` es
+   * [{ geo, mat, offs, colores }]: cada pieza se instancia una vez por offset
+   * y por objeto de la lista, así los cuatro neumáticos de TODOS los autos de
+   * la pista siguen costando una sola draw call. `colores` pinta cada
+   * instancia con setColorAt usando el mismo sorteo para todas las piezas del
+   * objeto, de modo que techo y carrocería salgan del mismo color.
+   */
+  placeParts(list, parts) {
+    if (!list || !list.length) return;
+    const base = new THREE.Matrix4(), loc = new THREE.Matrix4(), m = new THREE.Matrix4();
+    const q = new THREE.Quaternion(), p = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1);
+    const e = new THREE.Euler(), col = new THREE.Color();
+    const rand = mulberry32(0xA0705);
+
+    const meshes = parts.map(pt =>
+      new THREE.InstancedMesh(pt.geo, pt.mat, list.length * pt.offs.length));
+
+    list.forEach((pr, i) => {
+      const s = this.track.sample(pr.dist);
+      this.at(pr.dist, pr.x * ROAD_HALF, 0, p);
+      q.setFromAxisAngle(UP, s.heading);
+      base.compose(p, q, one);
+      const tinte = rand();
+      parts.forEach((pt, k) => {
+        pt.offs.forEach((o, j) => {
+          e.set(o.rx || 0, o.ry || 0, o.rz || 0);
+          loc.makeRotationFromEuler(e);
+          loc.setPosition(o.x || 0, o.y || 0, o.z || 0);
+          m.multiplyMatrices(base, loc);
+          const idx = i * pt.offs.length + j;
+          meshes[k].setMatrixAt(idx, m);
+          if (pt.colores)
+            meshes[k].setColorAt(idx, col.setHex(pt.colores[(tinte * pt.colores.length) | 0]));
+        });
+      });
+    });
+    for (const im of meshes) {
+      im.instanceMatrix.needsUpdate = true;
+      if (im.instanceColor) im.instanceColor.needsUpdate = true;
+      this.scene.add(im);
+    }
+  }
+
   buildObstacles() {
     const props = this.collect('obstacle');
     const by = {};
     for (const p of props) (by[p.kind] || (by[p.kind] = [])).push(p);
+    const lam = (opts) => new THREE.MeshLambertMaterial(opts);
 
-    this.placeProps(by.auto,   new THREE.BoxGeometry(1.8, 1.25, 4.2),   { color: 0xa8443c }, 0.62);
-    this.placeProps(by.auto,   new THREE.BoxGeometry(1.6, 0.85, 2.1),   { color: 0x2b3038 }, 1.68);
-    this.placeProps(by.micro,  new THREE.BoxGeometry(2.4, 2.8, 8.5),    { color: 0x2f7a4a }, 1.45);
+    /*
+     * Auto a escala real: 1,4 m al techo. El modelo anterior era una caja de
+     * 2,1 m de alto y al lado del skater (1,78 m) se leía como un camión.
+     * Carrocería baja, cabina con vidrios, ruedas, parachoques y focos, con
+     * el color sorteado por instancia como los autos de un juego de PSX.
+     */
+    if (by.auto) {
+      const COLORES = [0xa8443c, 0x30507c, 0xcfcac0, 0x5d6a70, 0x8a2f24, 0x2c6e55, 0xb8952e];
+      this.placeParts(by.auto, [
+        { geo: new THREE.BoxGeometry(1.68, 0.5, 4.1), mat: lam({ color: 0xffffff }),
+          colores: COLORES, offs: [{ y: 0.58 }] },
+        { geo: new THREE.BoxGeometry(1.5, 0.44, 1.9), mat: lam({ color: 0x27333c }),
+          offs: [{ y: 1.02, z: -0.25 }] },
+        { geo: new THREE.BoxGeometry(1.56, 0.09, 2.0), mat: lam({ color: 0xffffff }),
+          colores: COLORES, offs: [{ y: 1.27, z: -0.25 }] },
+        { geo: new THREE.CylinderGeometry(0.3, 0.3, 0.2, 10), mat: lam({ color: 0x1a1c20 }),
+          offs: [{ x: -0.78, y: 0.3, z:  1.25, rz: Math.PI / 2 },
+                 { x:  0.78, y: 0.3, z:  1.25, rz: Math.PI / 2 },
+                 { x: -0.78, y: 0.3, z: -1.25, rz: Math.PI / 2 },
+                 { x:  0.78, y: 0.3, z: -1.25, rz: Math.PI / 2 }] },
+        { geo: new THREE.BoxGeometry(1.7, 0.16, 0.1), mat: lam({ color: 0xb9bcc2 }),
+          offs: [{ y: 0.42, z: 2.08 }, { y: 0.42, z: -2.08 }] },
+        { geo: new THREE.BoxGeometry(0.3, 0.12, 0.06), mat: lam({ color: 0xe8dfae, emissive: 0x4a4322 }),
+          offs: [{ x: -0.55, y: 0.62, z: 2.1 }, { x: 0.55, y: 0.62, z: 2.1 }] },
+      ]);
+    }
+
+    /*
+     * Micro urbana: 2,6 m al techo, faldón de color, casco claro y cinta
+     * corrida de ventanas, como las micros de recorrido de verdad.
+     */
+    if (by.micro) {
+      const COLORES = [0x2f7a4a, 0xb03a2e, 0x2b5f8c];
+      this.placeParts(by.micro, [
+        { geo: new THREE.BoxGeometry(2.25, 1.05, 7.6), mat: lam({ color: 0xffffff }),
+          colores: COLORES, offs: [{ y: 0.92 }] },
+        { geo: new THREE.BoxGeometry(2.25, 1.15, 7.6), mat: lam({ color: 0xe9e6dc }),
+          offs: [{ y: 2.02 }] },
+        { geo: new THREE.BoxGeometry(2.31, 0.62, 6.9), mat: lam({ color: 0x2a3540 }),
+          offs: [{ y: 2.1 }] },
+        { geo: new THREE.BoxGeometry(2.29, 0.7, 0.34), mat: lam({ color: 0x27333c }),
+          offs: [{ y: 1.9, z: 3.65 }] },
+        { geo: new THREE.CylinderGeometry(0.42, 0.42, 0.26, 10), mat: lam({ color: 0x1a1c20 }),
+          offs: [{ x: -1.0, y: 0.42, z:  2.6, rz: Math.PI / 2 },
+                 { x:  1.0, y: 0.42, z:  2.6, rz: Math.PI / 2 },
+                 { x: -1.0, y: 0.42, z: -2.4, rz: Math.PI / 2 },
+                 { x:  1.0, y: 0.42, z: -2.4, rz: Math.PI / 2 }] },
+      ]);
+    }
+
+    // Peatón con cuerpo, cabeza y brazos en vez de la cápsula flotante.
+    if (by.peaton) {
+      const ROPA = [0x3b4a6b, 0x7a3b3b, 0x3b6b4a, 0x6b5a3b, 0x50436b];
+      this.placeParts(by.peaton, [
+        { geo: new THREE.BoxGeometry(0.36, 0.52, 0.2), mat: lam({ color: 0xffffff }),
+          colores: ROPA, offs: [{ y: 0.94 }] },
+        { geo: new THREE.BoxGeometry(0.13, 0.62, 0.15), mat: lam({ color: 0x33383f }),
+          offs: [{ x: -0.09, y: 0.37 }, { x: 0.09, y: 0.37 }] },
+        { geo: new THREE.SphereGeometry(0.11, 7, 5), mat: lam({ color: 0xd9a877 }),
+          offs: [{ y: 1.36 }] },
+        { geo: new THREE.BoxGeometry(0.09, 0.42, 0.12), mat: lam({ color: 0xd9a877 }),
+          offs: [{ x: -0.24, y: 0.96 }, { x: 0.24, y: 0.96 }] },
+      ]);
+    }
+
+    // Quiltro echado al sol: cuerpo, cabeza, patas y la cola parada.
+    if (by.perro) {
+      this.placeParts(by.perro, [
+        { geo: new THREE.BoxGeometry(0.3, 0.28, 0.62), mat: lam({ color: 0x8d6a44 }),
+          offs: [{ y: 0.42 }] },
+        { geo: new THREE.BoxGeometry(0.2, 0.18, 0.24), mat: lam({ color: 0x8d6a44 }),
+          offs: [{ y: 0.58, z: 0.4 }] },
+        { geo: new THREE.BoxGeometry(0.07, 0.28, 0.07), mat: lam({ color: 0x7a5a38 }),
+          offs: [{ x: -0.1, y: 0.14, z:  0.22 }, { x: 0.1, y: 0.14, z:  0.22 },
+                 { x: -0.1, y: 0.14, z: -0.22 }, { x: 0.1, y: 0.14, z: -0.22 }] },
+        { geo: new THREE.BoxGeometry(0.05, 0.05, 0.3), mat: lam({ color: 0x7a5a38 }),
+          offs: [{ y: 0.52, z: -0.42, rx: -0.5 }] },
+      ]);
+    }
+
     this.placeProps(by.cono,   new THREE.ConeGeometry(0.3, 0.72, 8),    { color: 0xe2662a }, 0.36);
-    this.placeProps(by.perro,  new THREE.BoxGeometry(0.42, 0.42, 0.95), { color: 0x8d6a44 }, 0.28);
     this.placeProps(by.basura, new THREE.BoxGeometry(1.0, 0.55, 1.0),   { color: 0x5f6b52 }, 0.28);
-    this.placeProps(by.peaton, new THREE.CapsuleGeometry(0.26, 0.9, 4, 8), { color: 0x3b4a6b }, 0.85);
     this.placeProps(by.hoyo,   new THREE.CircleGeometry(0.8, 14),       { color: 0x15161a }, 0.02, true);
   }
 
@@ -1074,7 +1303,9 @@ export class Renderer3D {
       }
 
       if (lm.kind === 'municipal') {
-        // Edificio de la Municipalidad: blanco, tres pisos, con su busto.
+        // Municipalidad de Cartagena: blanca, tres pisos, letrero
+        // institucional, bandera al tope y su busto en la entrada. Está a la
+        // izquierda de la marcha, así que la fachada mira hacia -x local.
         const g = new THREE.Group();
         const gy = this.terrainY(x, z);
         g.position.set(x, gy, z);
@@ -1082,22 +1313,120 @@ export class Renderer3D {
         const cuerpo = new THREE.Mesh(new THREE.BoxGeometry(11, 9.5, 15),
           new THREE.MeshLambertMaterial({ color: 0xeceae2 }));
         cuerpo.position.y = 4.75; g.add(cuerpo);
+        const vidrio = new THREE.MeshLambertMaterial({ color: 0x39505e });
         for (let piso = 0; piso < 3; piso++) {
           for (let k = -2; k <= 2; k++) {
-            const v = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.7, 0.12),
-              new THREE.MeshLambertMaterial({ color: 0x39505e }));
-            v.position.set(k * 2.1, 2.0 + piso * 3.0, 7.56); g.add(v);
+            if (piso === 0 && k === 0) continue;   // ahí va la puerta
+            const v = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.7, 1.3), vidrio);
+            v.position.set(-5.56, 2.0 + piso * 3.0, k * 2.6); g.add(v);
           }
         }
+        const puerta = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.5, 1.9),
+          new THREE.MeshLambertMaterial({ color: 0x4a3b28 }));
+        puerta.position.set(-5.56, 1.25, 0); g.add(puerta);
+        const letrero = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 0.8),
+          new THREE.MeshLambertMaterial({ map: TX.letreroMuni() }));
+        letrero.position.set(-5.53, 3.6, 0);
+        letrero.rotation.y = -Math.PI / 2; g.add(letrero);
         const cornisa = new THREE.Mesh(new THREE.BoxGeometry(11.8, 0.5, 15.8),
           new THREE.MeshLambertMaterial({ color: 0xd8d4c8 }));
         cornisa.position.y = 9.7; g.add(cornisa);
+        // Bandera al tope sobre la fachada.
+        const mastil = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 4, 6),
+          new THREE.MeshLambertMaterial({ color: 0xd8d4c8 }));
+        mastil.position.set(-4.5, 11.9, 0); g.add(mastil);
+        const bandera = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.0),
+          new THREE.MeshLambertMaterial({ map: TX.banderaChile(), side: THREE.DoubleSide }));
+        bandera.position.set(-4.5, 13.3, 0.8); g.add(bandera);
         const busto = new THREE.Mesh(new THREE.SphereGeometry(0.4, 10, 8),
           new THREE.MeshLambertMaterial({ color: 0x6b6152 }));
-        busto.position.set(4.5, 1.9, 8.6); g.add(busto);
+        busto.position.set(-7.2, 1.9, 3.4); g.add(busto);
         const ped = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.5, 0.8),
           new THREE.MeshLambertMaterial({ color: 0xbdb6a6 }));
-        ped.position.set(4.5, 0.75, 8.6); g.add(ped);
+        ped.position.set(-7.2, 0.75, 3.4); g.add(ped);
+        this.scene.add(g);
+      }
+
+      if (lm.kind === 'pescador') {
+        // La casa del mural del pescador, en la curva de Condell: dos pisos,
+        // zócalo de piedra canteada y el clásico mural mirando a la calle.
+        // Está a la derecha de la marcha: la fachada mira hacia +x local.
+        const g = new THREE.Group();
+        const gy = this.terrainY(x, z);
+        g.position.set(x, gy, z);
+        g.rotation.y = s.heading;
+        const zocalo = new THREE.Mesh(new THREE.BoxGeometry(7.2, 2.6, 9.2),
+          new THREE.MeshLambertMaterial({ map: TX.piedra() }));
+        zocalo.position.y = 1.3; g.add(zocalo);
+        const cuerpo = new THREE.Mesh(new THREE.BoxGeometry(7, 3.4, 9),
+          new THREE.MeshLambertMaterial({ color: 0xf0ebdd }));
+        cuerpo.position.y = 4.3; g.add(cuerpo);
+        const alero = new THREE.Mesh(new THREE.BoxGeometry(7.6, 0.35, 9.6),
+          new THREE.MeshLambertMaterial({ color: 0x4a4238 }));
+        alero.position.y = 6.15; g.add(alero);
+        // El mural del pescador, en el paño alto que da a la calle.
+        const mural = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 3.0),
+          new THREE.MeshLambertMaterial({ map: TX.muralPescador() }));
+        mural.position.set(3.53, 4.35, 1.8);
+        mural.rotation.y = Math.PI / 2; g.add(mural);
+        // Ventana del segundo piso y portón metálico sobre el zócalo.
+        const vent = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.1, 1.3),
+          new THREE.MeshLambertMaterial({ color: 0x39505e }));
+        vent.position.set(3.53, 4.5, -2.6); g.add(vent);
+        const porton = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.1, 2.6),
+          new THREE.MeshLambertMaterial({ color: 0x2e3238 }));
+        porton.position.set(3.63, 1.05, -1.4); g.add(porton);
+        this.scene.add(g);
+      }
+
+      if (lm.kind === 'gatoNegro') {
+        // El Gato Negro, pub-discoteque de la bajada a Playa Chica: dos pisos
+        // blancos, balcón corrido de madera, ventanales arriba y el letrero
+        // rojo del gato sobre la entrada. Va a la izquierda: fachada a -x.
+        const g = new THREE.Group();
+        const gy = this.terrainY(x, z);
+        g.position.set(x, gy, z);
+        g.rotation.y = s.heading;
+        const madera = new THREE.MeshLambertMaterial({ color: 0x5a3326 });
+
+        const cuerpo = new THREE.Mesh(new THREE.BoxGeometry(8, 6.4, 11),
+          new THREE.MeshLambertMaterial({ color: 0xf0ecdf }));
+        cuerpo.position.y = 3.2; g.add(cuerpo);
+        const alero = new THREE.Mesh(new THREE.BoxGeometry(8.8, 0.4, 11.8),
+          new THREE.MeshLambertMaterial({ color: 0x453325 }));
+        alero.position.y = 6.55; g.add(alero);
+
+        // Balcón corrido del segundo piso.
+        const losa = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.18, 8.5), madera);
+        losa.position.set(-4.6, 3.4, 0); g.add(losa);
+        const pasamanos = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 8.5), madera);
+        pasamanos.position.set(-5.2, 4.35, 0); g.add(pasamanos);
+        for (let i = -4; i <= 4; i++) {
+          const bal = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.9, 0.06), madera);
+          bal.position.set(-5.2, 3.9, i * 0.95); g.add(bal);
+        }
+
+        // Ventanales del segundo piso con marco de madera.
+        const vidrio = new THREE.MeshLambertMaterial({ color: 0x2e2226 });
+        for (let i = -2; i <= 2; i++) {
+          const marco = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.7, 1.25), madera);
+          marco.position.set(-4.04, 4.9, i * 1.9); g.add(marco);
+          const vid = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.45, 1.0), vidrio);
+          vid.position.set(-4.06, 4.9, i * 1.9); g.add(vid);
+        }
+
+        // El letrero rojo, bajo el balcón como en el original.
+        const letrero = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 1.4),
+          new THREE.MeshLambertMaterial({ map: TX.letreroGato() }));
+        letrero.position.set(-4.08, 2.55, 1.2);
+        letrero.rotation.y = -Math.PI / 2; g.add(letrero);
+
+        // Entrada y ventana enrejada del primer piso.
+        const puerta = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.1, 1.2), madera);
+        puerta.position.set(-4.03, 1.05, 3.9); g.add(puerta);
+        const reja = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.2, 3.4),
+          new THREE.MeshLambertMaterial({ color: 0x3a2c1c }));
+        reja.position.set(-4.03, 1.3, -1.4); g.add(reja);
         this.scene.add(g);
       }
 

@@ -1,0 +1,24 @@
+<!DOCTYPE html><html><body><canvas id="game" width="1280" height="720"></canvas><pre id="out"></pre>
+<script type="module">
+import * as THREE from '/vendor/three.module.js';
+import { buildTrack } from '/js/track.js';
+import { Renderer3D } from '/js/render3d.js';
+const canvas = document.getElementById('game');
+const track = buildTrack();
+const view = new Renderer3D(canvas, track);
+view.resize();
+const st = { position:760, playerX:0, airY:0, spin:0, lean:0, flip:0, shake:0,
+  speedRatio:0.55, speed:12, gameTime:4, grinding:false, grindY:0, crouch:0 };
+for (let i=0;i<90;i++) view.render([st], 1/60);
+const r = view.racers[0];
+const box = new THREE.Box3().setFromObject(r.rig.root);
+const cam = view.camera;
+const d = cam.position.distanceTo(r.root.position);
+const altura = box.max.y - box.min.y;
+const px = altura / (2*d*Math.tan(cam.fov*Math.PI/360)) * 720;
+document.getElementById('out').textContent = JSON.stringify({
+  camDist: +d.toFixed(2), fov: +cam.fov.toFixed(1), alturaRig: +altura.toFixed(2),
+  pxEsperados: Math.round(px), camY: +cam.position.y.toFixed(2),
+  rootY: +r.root.position.y.toFixed(2),
+}, null, 1);
+</script></body></html>

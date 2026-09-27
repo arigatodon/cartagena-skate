@@ -91,7 +91,12 @@ function limb(w, h, d, mat) {
   return g;
 }
 
-const mat = (c) => new THREE.MeshLambertMaterial({ color: c });
+/*
+ * flatShading: las esferas y cilindros muestran sus facetas en vez de
+ * suavizarse, que es el look de modelo de PlayStation que buscan estos
+ * monigotes. Las cajas no cambian, pero cabezas, pelos y ruedas sí.
+ */
+const mat = (c) => new THREE.MeshLambertMaterial({ color: c, flatShading: true });
 
 /*
  * Stance: separación entre centros de pie, en metros. 0,21 pone cada pie justo
@@ -200,7 +205,9 @@ export function buildCharacter(def) {
   const cuello = new THREE.Group();
   cuello.position.y = 0.02 * k;
   torso.add(cuello);
-  const cabeza = new THREE.Mesh(new THREE.SphereGeometry(0.112 * k, 12, 10),
+  // Pocas subdivisiones a propósito: con flatShading la cabeza queda
+  // facetada, como los modelos de 300 polígonos de la primera PlayStation.
+  const cabeza = new THREE.Mesh(new THREE.SphereGeometry(0.112 * k, 8, 6),
     def.mascara ? M.torso : M.piel);
   cabeza.position.y = 0.11 * k;
   cuello.add(cabeza);
@@ -232,8 +239,16 @@ export function buildCharacter(def) {
     banda.position.set(0, 0.125 * k, 0.098 * k);
     cuello.add(banda);
   } else {
+    // Cara: ojos y ceja única de pixel gordo, suficiente a la distancia de la
+    // cámara y muy al estilo de los personajes de 32 bits.
+    const ojoMat = new THREE.MeshLambertMaterial({ color: 0x1d1a16 });
+    for (const s of [-1, 1]) {
+      const ojo = new THREE.Mesh(new THREE.BoxGeometry(0.024 * k, 0.032 * k, 0.014 * k), ojoMat);
+      ojo.position.set(s * 0.046 * k, 0.115 * k, 0.102 * k);
+      cuello.add(ojo);
+    }
     const pelo = new THREE.Mesh(
-      new THREE.SphereGeometry(0.119 * k, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.62), M.pelo);
+      new THREE.SphereGeometry(0.119 * k, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.62), M.pelo);
     pelo.position.y = 0.115 * k;
     cuello.add(pelo);
     if (def.gorro) {
@@ -258,6 +273,12 @@ export function buildCharacter(def) {
     const codo = limb(0.072 * k * a, 0.24 * k, 0.072 * k * a, def.mascara ? M.torso : M.piel);
     codo.position.y = -0.25 * k;
     hombro.add(codo);
+    // Mano: un cubito de piel al final del antebrazo. Sin ella el brazo
+    // terminaba en un muñón cuadrado del color de la manga.
+    const mano = new THREE.Mesh(
+      new THREE.BoxGeometry(0.078 * k * a, 0.09 * k, 0.078 * k * a), M.piel);
+    mano.position.y = -0.27 * k;
+    codo.add(mano);
     brazos['hombro' + nom] = hombro;
     brazos['codo' + nom] = codo;
   }

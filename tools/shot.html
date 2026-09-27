@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<title>Cartagena Skate — cámara de fotos</title>
+<style>
+  html,body{margin:0;background:#000;overflow:hidden}
+  canvas{display:block;width:100vw;height:100vh}
+</style>
+</head>
+<body>
+<!--
+  Herramienta de desarrollo: renderiza UN cuadro de la escena a la distancia
+  que se pida, sin pasar por el menú ni por el bucle de juego. Sirve para
+  comparar capturas antes/después de tocar la dirección de arte.
+
+    tools/shot.html?d=760          un cuadro a los 760 m
+    tools/shot.html?d=760&lat=0.4  corrido a la derecha
+-->
+<canvas id="game"></canvas>
+<script type="module">
+import { buildTrack } from '../js/track.js';
+import { Renderer3D } from '../js/render3d.js';
+
+const q = new URLSearchParams(location.search);
+const num = (k, def) => (q.has(k) ? parseFloat(q.get(k)) : def);
+
+const canvas = document.getElementById('game');
+canvas.width  = innerWidth;
+canvas.height = innerHeight;
+
+const track = buildTrack();
+const view = new Renderer3D(canvas, track);
+view.resize();
+
+const estado = {
+  position: num('d', 760), playerX: num('lat', 0), airY: 0, spin: 0, lean: 0,
+  flip: 0, shake: 0, speedRatio: num('vel', 0.55), speed: 12, gameTime: 4,
+  grinding: false, grindY: 0, pushing: false, crouch: num('crouch', 0),
+  braking: false, tuck: false, airborne: false, bailing: 0, trick: null,
+};
+
+// Varios cuadros seguidos: la cámara y las poses se interpolan con dt, así que
+// un solo render las deja a medio camino.
+let n = 0;
+(function paso() {
+  view.render([estado], 1 / 60);
+  if (++n < 90) requestAnimationFrame(paso);
+  else document.title = 'listo';
+})();
+</script>
+</body>
+</html>
